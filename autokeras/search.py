@@ -7,12 +7,12 @@ import time
 import torch
 import torch.multiprocessing as mp
 
-
 from abc import ABC, abstractmethod
 from datetime import datetime
+
+from autokeras.backend import Backend
 from autokeras.bayesian import BayesianOptimizer
 from autokeras.constant import Constant
-from autokeras.nn.model_trainer import ModelTrainer
 from autokeras.utils import pickle_to_file, pickle_from_file, verbose_print, get_system
 
 
@@ -48,7 +48,8 @@ class Searcher(ABC):
     def __init__(self, n_output_node, input_shape, path, metric, loss, generators, verbose,
                  trainer_args=None,
                  default_model_len=None,
-                 default_model_width=None):
+                 default_model_width=None,
+                 skip_conn=True):
         """Initialize the Searcher.
 
         Args:
@@ -79,6 +80,8 @@ class Searcher(ABC):
         self.trainer_args = trainer_args
         self.default_model_len = default_model_len if default_model_len is not None else Constant.MODEL_LEN
         self.default_model_width = default_model_width if default_model_width is not None else Constant.MODEL_WIDTH
+        self.skip_conn = skip_conn
+
         if 'max_iter_num' not in self.trainer_args:
             self.trainer_args['max_iter_num'] = Constant.SEARCH_MAX_ITER
 
@@ -86,11 +89,10 @@ class Searcher(ABC):
         self.x_queue = []
         self.y_queue = []
 
-        logging.basicConfig(filename=os.path.join(self.path, datetime.now().strftime('run_%d_%m_%Y : _%H_%M.log')),
+        logging.basicConfig(filename=os.path.join(self.path, datetime.now().strftime('run_%d_%m_%Y_%H_%M.log')),
                             format='%(asctime)s - %(filename)s - %(message)s', level=logging.DEBUG)
 
         self._timeout = None
-
 
     def load_model_by_id(self, model_id):
         return pickle_from_file(os.path.join(self.path, str(model_id) + '.graph'))
@@ -292,16 +294,17 @@ class BayesianSearcher(Searcher):
     def __init__(self, n_output_node, input_shape, path, metric, loss,
                  generators, verbose, trainer_args=None,
                  default_model_len=None, default_model_width=None,
-                 t_min=None):
+                 t_min=None, skip_conn=True):
         super(BayesianSearcher, self).__init__(n_output_node, input_shape,
                                                path, metric, loss,
                                                generators, verbose,
                                                trainer_args,
                                                default_model_len,
-                                               default_model_width)
+                                               default_model_width,
+                                               skip_conn)
         if t_min is None:
             t_min = Constant.T_MIN
-        self.optimizer = BayesianOptimizer(self, t_min, metric)
+        self.optimizer = BayesianOptimizer(self, t_min, metric, skip_conn=self.skip_conn)
 
     def generate(self, multiprocessing_queue):
         """Generate the next neural architecture.
@@ -344,13 +347,13 @@ def train(q, graph, train_data, test_data, trainer_args, metric, loss, verbose, 
     """Train the neural architecture."""
     try:
         model = graph.produce_model()
-        loss, metric_value = ModelTrainer(model=model,
-                                          path=path,
-                                          train_data=train_data,
-                                          test_data=test_data,
-                                          metric=metric,
-                                          loss_function=loss,
-                                          verbose=verbose).train_model(**trainer_args)
+        loss, metric_value = Backend.get_model_trainer(model=model,
+                                                       path=path,
+                                                       train_data=train_data,
+                                                       test_data=test_data,
+                                                       metric=metric,
+                                                       loss_function=loss,
+                                                       verbose=verbose).train_model(**trainer_args)
         model.set_weight_to_graph()
         if q:
             q.put((metric_value, loss, model.graph))
@@ -376,4 +379,3 @@ def train(q, graph, train_data, test_data, trainer_args, metric, loss, verbose, 
         if q:
             q.put((None, None, None))
         return None, None, None
-

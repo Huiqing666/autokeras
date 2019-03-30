@@ -4,14 +4,13 @@ GoogleDriveFile = namedtuple('GoogleDriveFile', ['google_drive_id', 'local_name'
 
 
 class Constant:
+    BACKEND = 'torch'
     # Data
-
     VALIDATION_SET_SIZE = 0.08333
     CUTOUT_HOLES = 1
     CUTOUT_RATIO = 0.5
 
     # Searcher
-
     MAX_MODEL_NUM = 1000
     BETA = 2.576
     KERNEL_LAMBDA = 1.0
@@ -75,6 +74,8 @@ class Constant:
 
     VOICE_GENERATOR_MODELS = [
         GoogleDriveFile(google_drive_id='1E-B92LZz4dgg8DU81D6pyhOzM9yvvBTj', local_name='vg.pth')]
+    VOICE_RECONGINIZER_MODELS = [
+        GoogleDriveFile(google_drive_id='1RQQB-Yd-aqb6scWtnu1K4nlSTxTyaKjI', local_name='vr.pth')]
     FACE_DETECTOR_MODELS = [
         GoogleDriveFile(google_drive_id='1QJWKpAHRrAjrYPl6hQNDaoyBjoa_LRgz', local_name='pnet.pt'),
         GoogleDriveFile(google_drive_id='10aCiR393E6TLkp9KPPl4JhZamYqUVBO1', local_name='rnet.pt'),
@@ -85,6 +86,19 @@ class Constant:
         GoogleDriveFile(google_drive_id='1flRlQjfIa2toQ6HNmInhqrh4NuxGh8pT', local_name='sa.pth')]
     TOPIC_CLASSIFIER_MODELS = [
         GoogleDriveFile(google_drive_id='1U7C3xPid1ZvBKpkfW9KikrmNui0yJqnk', local_name='tc.pth')]
+    PRETRAINED_VOCAB_BERT_BASE_UNCASED = \
+        GoogleDriveFile(google_drive_id='1hlPkUSPeT5ZQBYZ1Z734BbnHIvpx2ZLj', local_name='vbbu.txt')
+    PRETRAINED_VOCAB_BERT_BASE_CASED = \
+        GoogleDriveFile(google_drive_id='1FLytUhOIF0mTfA4A9MtE3aQ1kJr96oTR', local_name='vbbc.txt')
+    PRETRAINED_MODEL_BERT_BASE_UNCASED = \
+        GoogleDriveFile(google_drive_id='1rp1rVBoQwqgvg-JE8JwLL-adgLE07oTG', local_name='mbbu.pth')
+    PRETRAINED_MODEL_BERT_BASE_CASED = \
+        GoogleDriveFile(google_drive_id='1YKoGj-e4zoyTabt5dYpgEPe-PAmjOTDV', local_name='mbbc.pth')
+
+    VOICE_RECONGINIZER_LABELS = "_'ABCDEFGHIJKLMNOPQRSTUVWXYZ "
+    VOICE_RECONGINIZER_AUDIO_CONF = {'sample_rate': 16000, 'window_size': 0.02, 'window_stride': 0.01,
+                                     'window': 'hamming', 'noise_dir': None, 'noise_prob': 0.4,
+                                     'noise_levels': (0.0, 0.5)}
 
     # Image Resize
 
