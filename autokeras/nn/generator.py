@@ -160,6 +160,7 @@ class ResNetGenerator(NetworkGenerator):
     def __init__(self, n_output_node, input_shape):
         super(ResNetGenerator, self).__init__(n_output_node, input_shape)
         # self.layers = [2, 2, 2, 2]
+        # filters
         self.in_planes = 64
         self.block_expansion = 1
         self.n_dim = len(self.input_shape) - 1
@@ -174,6 +175,8 @@ class ResNetGenerator(NetworkGenerator):
         self.batch_norm = get_batch_norm_class(self.n_dim)
 
     def generate(self, model_len=None, model_width=None):
+
+        # model width = filters, 64 default
         if model_width is None:
             model_width = Constant.MODEL_WIDTH
         graph = Graph(self.input_shape, False)
@@ -204,7 +207,41 @@ class ResNetGenerator(NetworkGenerator):
             self.in_planes = planes * self.block_expansion
         return out
 
-    def _make_block(self, graph, in_planes, planes, node_id, stride=1):
+    def _basic_block(self, graph, in_planes, planes, node_id, stride=1):
+        out = graph.add_layer(self.batch_norm(in_planes), node_id)
+        out = graph.add_layer(StubReLU(), out)
+        residual_node_id = out
+        out = graph.add_layer(self.conv(in_planes, planes, kernel_size=3, stride=stride), out)
+        out = graph.add_layer(self.batch_norm(planes), out)
+        out = graph.add_layer(StubReLU(), out)
+        out = graph.add_layer(self.conv(planes, planes, kernel_size=3), out)
+
+        residual_node_id = graph.add_layer(StubReLU(), residual_node_id)
+        residual_node_id = graph.add_layer(self.conv(in_planes,
+                                                     planes * self.block_expansion,
+                                                     kernel_size=1,
+                                                     stride=stride), residual_node_id)
+        out = graph.add_layer(StubAdd(), (out, residual_node_id))
+        return out
+
+    def _bottle_neck(self, graph, in_planes, planes, node_id, stride=1):
+        out = graph.add_layer(self.batch_norm(in_planes), node_id)
+        out = graph.add_layer(StubReLU(), out)
+        residual_node_id = out
+        out = graph.add_layer(self.conv(in_planes, planes, kernel_size=3, stride=stride), out)
+        out = graph.add_layer(self.batch_norm(planes), out)
+        out = graph.add_layer(StubReLU(), out)
+        out = graph.add_layer(self.conv(planes, planes, kernel_size=3), out)
+
+        residual_node_id = graph.add_layer(StubReLU(), residual_node_id)
+        residual_node_id = graph.add_layer(self.conv(in_planes,
+                                                     planes * self.block_expansion,
+                                                     kernel_size=1,
+                                                     stride=stride), residual_node_id)
+        out = graph.add_layer(StubAdd(), (out, residual_node_id))
+        return out
+
+    def make_block(self, graph, in_planes, planes, node_id, stride=1):
         out = graph.add_layer(self.batch_norm(in_planes), node_id)
         out = graph.add_layer(StubReLU(), out)
         residual_node_id = out
