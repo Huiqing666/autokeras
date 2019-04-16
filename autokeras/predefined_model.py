@@ -101,9 +101,9 @@ class PredefinedModel(SingleModelSupervised):
 
 class PredefinedResnet(PredefinedModel):
     def _init_generator(self, n_output_node, input_shape):
-        res_gui = resnet_gui()
-        var = res_gui.var
-        print(var)
+        # res_gui = resnet_gui()
+        # var = res_gui.var
+        # print(var)
         return ResNetGenerator(n_output_node, input_shape)
 
 

@@ -159,7 +159,8 @@ class MlpGenerator(NetworkGenerator):
 class ResNetGenerator(NetworkGenerator):
     def __init__(self, n_output_node, input_shape):
         super(ResNetGenerator, self).__init__(n_output_node, input_shape)
-        # self.layers = [2, 2, 2, 2]
+        self.repetitions = [3, 4, 6, 3]
+
         # filters
         self.in_planes = 64
         self.block_expansion = 1
@@ -179,6 +180,7 @@ class ResNetGenerator(NetworkGenerator):
         # model width = filters, 64 default
         if model_width is None:
             model_width = Constant.MODEL_WIDTH
+        # model_width = 32
         graph = Graph(self.input_shape, False)
         temp_input_channel = self.input_shape[-1]
         output_node_id = 0
@@ -187,13 +189,21 @@ class ResNetGenerator(NetworkGenerator):
         output_node_id = graph.add_layer(self.batch_norm(model_width), output_node_id)
         # output_node_id = graph.add_layer(self.pooling(kernel_size=3, stride=2, padding=1), output_node_id)
 
-        output_node_id = self._make_layer(graph, model_width, 2, output_node_id, 1)
-        model_width *= 2
+        for i, repetition in enumerate(self.repetitions):
+            init_stride = 2
+            if i == 0:
+                init_stride = 1
+            output_node_id = self._make_layer(graph, model_width, repetition, output_node_id, init_stride)
+            model_width *= 2
+
+        """
         output_node_id = self._make_layer(graph, model_width, 2, output_node_id, 2)
         model_width *= 2
         output_node_id = self._make_layer(graph, model_width, 2, output_node_id, 2)
         model_width *= 2
         output_node_id = self._make_layer(graph, model_width, 2, output_node_id, 2)
+        """
+        model_width = int(model_width / 2)
 
         output_node_id = graph.add_layer(self.global_avg_pooling(), output_node_id)
         graph.add_layer(StubDense(model_width * self.block_expansion, self.n_output_node), output_node_id)
@@ -203,6 +213,7 @@ class ResNetGenerator(NetworkGenerator):
         strides = [stride] + [1] * (blocks - 1)
         out = node_id
         for current_stride in strides:
+            print(current_stride)
             out = self._make_block(graph, self.in_planes, planes, out, current_stride)
             self.in_planes = planes * self.block_expansion
         return out
@@ -241,7 +252,7 @@ class ResNetGenerator(NetworkGenerator):
         out = graph.add_layer(StubAdd(), (out, residual_node_id))
         return out
 
-    def make_block(self, graph, in_planes, planes, node_id, stride=1):
+    def _make_block(self, graph, in_planes, planes, node_id, stride=1):
         out = graph.add_layer(self.batch_norm(in_planes), node_id)
         out = graph.add_layer(StubReLU(), out)
         residual_node_id = out
