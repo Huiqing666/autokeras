@@ -16,6 +16,7 @@ class resnet_gui:
 class gui:
     def __init__(self, master):
         self.master = master
+        self.var = []
         Label(self.master, text='Set your parameters of resnet').pack()
         frame1 = Frame(self.master)
         frame1.pack()
@@ -57,7 +58,7 @@ class gui:
         # get parameters of resnet
 
     def get_variable(self, event):
-        self.var = []
+
         self.var.append(int(self.btn1.get()))
         self.var.append(int(self.btn2.get()))
         self.var.append(float(self.rateEntry.get()))
