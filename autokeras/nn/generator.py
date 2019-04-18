@@ -158,9 +158,22 @@ class MlpGenerator(NetworkGenerator):
 
 class ResNetGenerator(NetworkGenerator):
     def __init__(self, n_output_node, input_shape):
+        """
+        Initialize the generator to generate the model architecture.
+
+        Args:
+            n_output_node:  A integer value represent the number of output node in the final layer.
+            input_shape: A tuple to express the shape of every train entry.
+            n_dim: dimension of output(typically 3 for images)
+
+            in_planes: number of filters
+            block_expansion:
+            repetitions: block repetition times for resnet
+            block design: either basic block or bottleneck design
+        """
         super(ResNetGenerator, self).__init__(n_output_node, input_shape)
         self.repetitions = [3, 4, 6, 3]
-
+        self.block_design = 1
         # filters
         self.in_planes = 64
         self.block_expansion = 1
@@ -176,18 +189,28 @@ class ResNetGenerator(NetworkGenerator):
         self.batch_norm = get_batch_norm_class(self.n_dim)
 
     def generate(self, model_len=None, model_width=None):
+        """
+        Generate the model architecture.
 
+        Args:
+            Graph:  Graph extracts the neural architecture graph from a Keras model.
+                    Each node in the graph is a intermediate tensor between layers.
+                    Each layer is an edge in the graph.
+                    Notably, multiple edges may refer to the same layer.
+
+            temp_input_shape: input channel of image
+            model width: filters, 64 default
+            block design: either basic block or bottleneck design
+        """
         # model width = filters, 64 default
         if model_width is None:
             model_width = Constant.MODEL_WIDTH
-        # model_width = 32
         graph = Graph(self.input_shape, False)
         temp_input_channel = self.input_shape[-1]
         output_node_id = 0
-        # output_node_id = graph.add_layer(StubReLU(), output_node_id)
+
         output_node_id = graph.add_layer(self.conv(temp_input_channel, model_width, kernel_size=3), output_node_id)
         output_node_id = graph.add_layer(self.batch_norm(model_width), output_node_id)
-        # output_node_id = graph.add_layer(self.pooling(kernel_size=3, stride=2, padding=1), output_node_id)
 
         for i, repetition in enumerate(self.repetitions):
             init_stride = 2
@@ -196,29 +219,44 @@ class ResNetGenerator(NetworkGenerator):
             output_node_id = self._make_layer(graph, model_width, repetition, output_node_id, init_stride)
             model_width *= 2
 
-        """
-        output_node_id = self._make_layer(graph, model_width, 2, output_node_id, 2)
-        model_width *= 2
-        output_node_id = self._make_layer(graph, model_width, 2, output_node_id, 2)
-        model_width *= 2
-        output_node_id = self._make_layer(graph, model_width, 2, output_node_id, 2)
-        """
+        #
         model_width = int(model_width / 2)
 
         output_node_id = graph.add_layer(self.global_avg_pooling(), output_node_id)
+
         graph.add_layer(StubDense(model_width * self.block_expansion, self.n_output_node), output_node_id)
         return graph
 
     def _make_layer(self, graph, planes, blocks, node_id, stride):
+        """
+        Generate the each big block.
+
+        Args:
+            Graph:  Graph extracts the neural architecture graph from a Keras model.
+                    Each node in the graph is a intermediate tensor between layers.
+                    Each layer is an edge in the graph.
+                    Notably, multiple edges may refer to the same layer.
+
+            temp_input_shape: input channel of image
+            model width: filters, 64 default
+        """
         strides = [stride] + [1] * (blocks - 1)
         out = node_id
         for current_stride in strides:
-            print(current_stride)
-            out = self._make_block(graph, self.in_planes, planes, out, current_stride)
-            self.in_planes = planes * self.block_expansion
+            if self.block_design == 0:
+                out = self._basic_block(graph, self.in_planes, planes, out, current_stride)
+            else:
+                out = self._bottle_neck(graph, self.in_planes, planes, out, current_stride)
+                self.in_planes = planes * 4
+
         return out
 
     def _basic_block(self, graph, in_planes, planes, node_id, stride=1):
+        """
+        Generate a basic block of improved version of resnet.
+        3 * 3 conv layer
+        3 * 3 conv layer
+        """
         out = graph.add_layer(self.batch_norm(in_planes), node_id)
         out = graph.add_layer(StubReLU(), out)
         residual_node_id = out
@@ -227,7 +265,6 @@ class ResNetGenerator(NetworkGenerator):
         out = graph.add_layer(StubReLU(), out)
         out = graph.add_layer(self.conv(planes, planes, kernel_size=3), out)
 
-        residual_node_id = graph.add_layer(StubReLU(), residual_node_id)
         residual_node_id = graph.add_layer(self.conv(in_planes,
                                                      planes * self.block_expansion,
                                                      kernel_size=1,
@@ -236,37 +273,35 @@ class ResNetGenerator(NetworkGenerator):
         return out
 
     def _bottle_neck(self, graph, in_planes, planes, node_id, stride=1):
-        out = graph.add_layer(self.batch_norm(in_planes), node_id)
-        out = graph.add_layer(StubReLU(), out)
-        residual_node_id = out
-        out = graph.add_layer(self.conv(in_planes, planes, kernel_size=3, stride=stride), out)
+        """
+        Generate a bottleneck design of block.
+        1 * 1 conv layer
+        3 * 3 conv layer
+        1 * 1 conv layer
+        """
+        self.block_expansion = 4
+        residual_node_id = node_id
+        out = node_id
+        print(in_planes,  planes)
+        out = graph.add_layer(self.conv(in_planes, planes, kernel_size=1), out)
         out = graph.add_layer(self.batch_norm(planes), out)
         out = graph.add_layer(StubReLU(), out)
-        out = graph.add_layer(self.conv(planes, planes, kernel_size=3), out)
-
-        residual_node_id = graph.add_layer(StubReLU(), residual_node_id)
-        residual_node_id = graph.add_layer(self.conv(in_planes,
-                                                     planes * self.block_expansion,
-                                                     kernel_size=1,
-                                                     stride=stride), residual_node_id)
-        out = graph.add_layer(StubAdd(), (out, residual_node_id))
-        return out
-
-    def _make_block(self, graph, in_planes, planes, node_id, stride=1):
-        out = graph.add_layer(self.batch_norm(in_planes), node_id)
-        out = graph.add_layer(StubReLU(), out)
-        residual_node_id = out
-        out = graph.add_layer(self.conv(in_planes, planes, kernel_size=3, stride=stride), out)
+        out = graph.add_layer(self.conv(planes, planes, kernel_size=3, stride=stride), out)
         out = graph.add_layer(self.batch_norm(planes), out)
         out = graph.add_layer(StubReLU(), out)
-        out = graph.add_layer(self.conv(planes, planes, kernel_size=3), out)
+        out = graph.add_layer(self.conv(planes, self.block_expansion*planes, kernel_size=1), out)
+        out = graph.add_layer(self.batch_norm(self.block_expansion*planes), out)
 
-        residual_node_id = graph.add_layer(StubReLU(), residual_node_id)
-        residual_node_id = graph.add_layer(self.conv(in_planes,
-                                                     planes * self.block_expansion,
-                                                     kernel_size=1,
-                                                     stride=stride), residual_node_id)
+
+        if stride != 1 or in_planes != self.block_expansion*planes:
+            residual_node_id = graph.add_layer(self.conv(in_planes,
+                                                         planes * self.block_expansion,
+                                                         kernel_size=1,
+                                                         stride=stride), residual_node_id)
+            residual_node_id  = graph.add_layer(self.batch_norm(self.block_expansion*planes), residual_node_id)
+
         out = graph.add_layer(StubAdd(), (out, residual_node_id))
+        out = graph.add_layer(StubReLU(), out)
         return out
 
 
