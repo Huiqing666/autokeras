@@ -157,7 +157,7 @@ class MlpGenerator(NetworkGenerator):
 
 
 class ResNetGenerator(NetworkGenerator):
-    def __init__(self, n_output_node, input_shape):
+    def __init__(self, n_output_node, input_shape, var):
         """
         Initialize the generator to generate the model architecture.
 
@@ -172,8 +172,8 @@ class ResNetGenerator(NetworkGenerator):
             block design: either basic block or bottleneck design
         """
         super(ResNetGenerator, self).__init__(n_output_node, input_shape)
-        self.repetitions = [3, 4, 6, 3]
-        self.block_design = 1
+        self.repetitions = [var[0], var[1], var[2], var[3]]
+        self.block_design = var[4]
         # filters
         self.in_planes = 64
         self.block_expansion = 1
@@ -245,10 +245,10 @@ class ResNetGenerator(NetworkGenerator):
         for current_stride in strides:
             if self.block_design == 0:
                 out = self._basic_block(graph, self.in_planes, planes, out, current_stride)
+
             else:
                 out = self._bottle_neck(graph, self.in_planes, planes, out, current_stride)
-                self.in_planes = planes * 4
-
+            self.in_planes = self.block_expansion * planes
         return out
 
     def _basic_block(self, graph, in_planes, planes, node_id, stride=1):

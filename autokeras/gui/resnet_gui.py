@@ -9,6 +9,7 @@ class resnet_gui:
         root.resizable(0, 0)  # Don't allow resizing in the x or y direction
         root.title('Gui for resnet')
         root.mainloop()
+        self.var = theGui.var
 
 
 class gui:
@@ -35,17 +36,24 @@ class gui:
         Label(frame1, text='Repetitions of Conv Block', font=("", 12)).grid(row=3, column=0, rowspan=50)
         subframe1 = Frame(frame2)
 
-        default_r = StringVar()
-        default_r.set('2')
-        self.conv2_x = Entry(subframe1, textvariable=default_r)
+        default_r1 = StringVar()
+        default_r1.set('2')
+        self.conv2_x = Entry(subframe1, textvariable=default_r1)
         self.conv2_x.grid(row=3, column=1, columnspan=20)
-        self.conv3_x = Entry(subframe1, textvariable=default_r)
+
+        default_r2 = StringVar()
+        default_r2.set('2')
+        self.conv3_x = Entry(subframe1, textvariable=default_r2)
         self.conv3_x.grid(row=4, column=1, columnspan=20)
 
-        self.conv4_x = Entry(subframe1, textvariable=default_r)
+        default_r3 = StringVar()
+        default_r3.set('2')
+        self.conv4_x = Entry(subframe1, textvariable=default_r3)
         self.conv4_x.grid(row=5, column=1, columnspan=20)
 
-        self.conv5_x = Entry(subframe1, textvariable=default_r)
+        default_r4 = StringVar()
+        default_r4.set('2')
+        self.conv5_x = Entry(subframe1, textvariable=default_r4)
         self.conv5_x.grid(row=6, column=1, columnspan=20)
 
         subframe1.grid(row=3, column=0)
